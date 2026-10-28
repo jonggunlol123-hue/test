@@ -1,124 +1,506 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>흑월 | 조직 포털</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>흑월 | Black Moon</title>
 <style>
-:root{--blue:#214cf4;--purple:#5638f5;--ink:#172033;--muted:#718096;--line:#e5e7eb;--bg:#f7f9fc;--red:#8d171b}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,"Noto Sans KR",system-ui,sans-serif;color:var(--ink);background:var(--bg)}button,input,textarea,select{font:inherit}button,a{cursor:pointer}button{border:0;border-radius:10px;padding:11px 15px;font-weight:750}a{text-decoration:none;color:inherit}
-.app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.sidebar{background:linear-gradient(180deg,#1a1013,#08090d 72%);color:#fff;padding:17px 12px;display:flex;flex-direction:column;gap:20px}.brand{display:flex;align-items:center;gap:12px;padding:3px 8px 18px;border-bottom:1px solid #ffffff20}.logo{width:43px;height:43px;border-radius:12px;background:linear-gradient(135deg,#111,#70191f);display:grid;place-items:center;font-size:22px;border:1px solid #8f3838}.brand strong{display:block;font-size:14px}.brand small{color:#c5c9d2;font-size:11px}.nav-label{font-size:11px;color:#aaa;padding:0 9px}.nav{display:grid;gap:5px}.nav button{width:100%;display:flex;justify-content:space-between;align-items:center;background:transparent;color:#eee;text-align:left;padding:12px 10px;font-size:13px}.nav button span{font-size:10px;color:#c8c8d0}.nav button.active,.nav button:hover{background:linear-gradient(90deg,#8d171b,#641519);outline:1px solid #a73a3e}.hint{margin-top:4px;border:1px solid #ffffff20;border-radius:13px;padding:13px;font-size:12px;line-height:1.6;color:#e6e7eb}.hint b{display:block;margin-bottom:5px}.profile{margin-top:auto;background:#ffffff0d;border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center;font-size:12px}.avatar{width:34px;height:34px;border-radius:50%;background:#f0f2f7;color:#2849e9;display:grid;place-items:center;font-weight:800}.profile small{display:block;color:#aeb5c5;margin-top:3px}
-main{min-width:0}.topbar{height:54px;background:white;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:15px;font-size:13px}.topbar .meta{color:var(--muted);font-size:11px}.top-actions{display:flex;gap:8px}.primary{background:var(--blue);color:white}.secondary{background:white;border:1px solid #dce1eb;color:#263248}.content{max-width:1250px;margin:22px auto;padding:0 22px 35px}.hero{background:linear-gradient(110deg,#1e5bff,#5438f5 55%,#1746e8);border-radius:16px;padding:30px;color:white;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:0 4px 8px #173dd51a}.eyebrow{font-size:12px;color:#e5eaff;background:#ffffff20;border-radius:30px;padding:5px 10px;display:inline-block}.dot{color:#20f2b2}.hero h1{font-size:29px;margin:10px 0 7px}.hero p{margin:0;color:#e5eaff;line-height:1.7;font-size:14px;max-width:590px}.hero-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.yellow{background:#ffdc35;color:#352700}.hero .light{background:#fff;color:#263248}.hero .outline{background:#ffffff12;color:#fff;border:1px solid #ffffff45}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0}.stat,.panel{background:white;border:1px solid var(--line);border-radius:15px;box-shadow:0 1px 2px #00000005}.stat{padding:22px;min-height:145px}.stat-head{display:flex;justify-content:space-between;color:var(--muted);font-size:13px}.stat-icon{background:#e7edff;color:#3055f5;border-radius:9px;padding:8px}.stat strong{display:block;margin-top:28px;font-size:22px;color:#1746e8}.stat:first-child strong{color:#111827}.stat small{color:var(--muted);font-size:11px}.panel{padding:22px;margin-bottom:20px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.panel h2{font-size:16px;margin:0 0 4px}.sub{font-size:11px;color:var(--muted)}.link{color:#1746e8;background:transparent;padding:5px;font-size:12px}.table-wrap{overflow-x:auto;margin-top:24px}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}th{text-align:left;font-weight:600;color:#4b5563}th,td{padding:11px 8px;border-bottom:1px solid var(--line)}td.amount{text-align:right;color:#00a879;font-weight:750}.pill{background:#d7f9ec;color:#07815e;padding:3px 8px;border-radius:20px;font-size:10px}.guide{border:1px dashed #d9e0ea;background:#f9fbff;border-radius:15px;padding:20px;font-size:13px}.guide h3{margin:0 0 8px;font-size:14px}.guide p{margin:0;color:var(--muted);line-height:1.7}
-.modal-backdrop{position:fixed;inset:0;background:#0b102080;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}.modal{width:min(420px,100%);background:white;border-radius:18px;padding:25px;box-shadow:0 25px 80px #0003}.modal h2{margin:0 0 7px}.modal p{font-size:13px;color:var(--muted);line-height:1.6}.field{display:grid;gap:7px;margin:15px 0}.field label{font-size:12px;font-weight:700}.field input,.field textarea,.field select{border:1px solid #dce1eb;border-radius:9px;padding:12px;width:100%;background:#fff}.modal-actions{display:flex;gap:8px;margin-top:18px}.modal-actions button{flex:1}.notice{font-size:11px;color:#687386;margin-top:12px;line-height:1.6}.toast{display:none;margin:0 0 15px;background:#e7fff5;border:1px solid #b4f0d8;color:#067650;padding:11px 14px;border-radius:10px;font-size:12px}
-@media(max-width:900px){.app{grid-template-columns:200px 1fr}.hero{align-items:flex-start;flex-direction:column}.cards{grid-template-columns:1fr}.content{padding:0 14px 25px}.topbar{padding:0 14px}.hero h1{font-size:25px}}
-@media(max-width:620px){.app{display:block}.sidebar{padding:12px;gap:12px}.brand{padding-bottom:10px}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.nav button{font-size:12px}.hint,.profile,.nav-label{display:none}.topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:10px}.topbar .meta{display:none}.hero{padding:22px}.hero-actions button,.hero-actions a{font-size:12px}.stat{min-height:120px}.stat strong{margin-top:18px}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f5f6fa;color:#182033}
+button,input,select{font:inherit}
+button{cursor:pointer;border:0;border-radius:8px;padding:10px 14px;font-weight:bold}
+input,select{width:100%;padding:11px;border:1px solid #dce0e8;border-radius:8px;background:white}
+.layout{min-height:100vh;display:grid;grid-template-columns:230px 1fr}
+aside{background:#100d10;color:white;padding:20px 12px;display:flex;flex-direction:column;gap:20px}
+.brand{font-size:21px;font-weight:bold;padding:8px;border-bottom:1px solid #393136;padding-bottom:20px}
+.brand small{display:block;font-size:11px;color:#c6a4a4;margin-top:7px}
+nav{display:grid;gap:6px}
+nav button{text-align:left;background:transparent;color:#ddd}
+nav button.active,nav button:hover{background:#801b22;color:white}
+.user{margin-top:auto;padding:12px;background:#ffffff12;border-radius:10px;font-size:12px}
+main{min-width:0}
+header{background:white;padding:16px 24px;border-bottom:1px solid #e4e6ed;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.content{padding:22px;max-width:1250px;margin:auto}
+.hero{padding:28px;border-radius:14px;background:linear-gradient(110deg,#1d4ed8,#5b35d5);color:white}
+.hero h1{margin:12px 0;font-size:27px}
+.hero p{line-height:1.7;color:#e6eaff}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+.card,.panel{background:white;border:1px solid #e5e7eb;border-radius:13px;padding:19px;margin-bottom:16px}
+.card span{color:#718096;font-size:13px}
+.card strong{display:block;font-size:24px;margin:20px 0 8px}
+.card small,.muted{color:#718096;font-size:12px}
+.panel h2{font-size:16px;margin:0 0 15px}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.field{display:grid;gap:6px;font-size:12px;font-weight:bold}
+.full{grid-column:1/-1}
+.primary{background:#244cf4;color:white}
+.secondary{background:white;border:1px solid #d9deea;color:#27334a}
+.danger{background:#fff0f0;color:#a21b27}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #e7e9ef}
+th{color:#647084}
+.table-wrap{overflow-x:auto}
+.empty{padding:24px;text-align:center;color:#788397;font-size:13px}
+.toast{display:none;background:#e8fff4;color:#087550;padding:12px;border-radius:9px;margin-bottom:14px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:white;padding:24px;border-radius:15px;width:min(400px,100%)}
+.modal-box .field{margin:12px 0}
+@media(max-width:800px){.layout{grid-template-columns:1fr}aside{padding:12px}.brand{padding-bottom:10px}nav{grid-template-columns:repeat(2,1fr)}.user{display:none}.cards{grid-template-columns:1fr}.content{padding:12px}.form{grid-template-columns:1fr 1fr}header{padding:12px;flex-wrap:wrap}}
+@media(max-width:480px){.form{grid-template-columns:1fr}.full{grid-column:auto}.hero{padding:20px}}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar">
-  <div class="brand"><div class="logo">☾</div><div><strong>흑월 <span style="color:#f3d15a;font-size:10px">Black Moon</span></strong><small>조직 · 통합관리</small></div></div>
-  <div class="nav-label">메뉴 목록</div>
-  <nav class="nav">
-    <button class="active" data-section="dashboard">▦ 통합 대시보드 <span>전체 현황</span></button>
-    <button data-section="members">♙ 조직원 관리 <span>신규 등록</span></button>
-    <button data-section="ranks">☷ 직급표 <span>직급 확인</span></button>
-    <button data-section="ledger">▤ 장부 관리 <span>수입/지출</span></button>
-    <button data-section="items">▣ 품목 관리 <span>기준 품목</span></button>
-    <button data-section="history">◉ 거래내역 조회 <span>전체 내역</span></button>
-    <button data-section="loans">▱ 대출 관리 <span>지급/상환</span></button>
+<div class="layout">
+<aside>
+  <div class="brand">☾ 흑월 <span style="color:#e6c86e">Black Moon</span><small>조직 통합 관리 패널</small></div>
+  <nav>
+    <button class="active" data-page="dashboard">▦ 대시보드</button>
+    <button data-page="members">♙ 조직원 관리</button>
+    <button data-page="ranks">☷ 직급표</button>
+    <button data-page="ledger">▤ 장부 관리</button>
+    <button data-page="items">▣ 품목 관리</button>
+    <button data-page="history">◉ 거래내역 조회</button>
+    <button data-page="loans">▱ 대출 관리</button>
   </nav>
-  <div class="hint"><b>▤ 다중 사용자 공동 작업</b>조직원은 로그인 후 권한에 따라 장부와 조직 정보를 확인할 수 있습니다.</div>
-  <div class="profile"><div class="avatar" id="avatar">방</div><div><b id="profileName">방문자</b><small id="profileRole">로그인 전 · 공개 화면</small></div></div>
+  <div class="user"><b id="usernameDisplay">방문자</b><br><span id="roleDisplay">로그인 전</span></div>
 </aside>
-<main>
-  <header class="topbar"><div>▣　<b id="pageTitle">통합 대시보드</b> <span class="meta">◷ 2026년 10월 28일 · KST　 |　 데모 포털</span></div><div class="top-actions"><button class="secondary" id="loginTop">♙ 조직원 로그인</button><button class="primary" id="ledgerTop">▤ 장부 작성</button></div></header>
-  <div class="content">
-    <div id="toast" class="toast"></div>
-    <section class="hero"><div><span class="eyebrow"><span class="dot">●</span>　조직원 전용 공동 작업 포털</span><h1>흑월 공동 업무 포털</h1><p>조직원 정보를 확인하고, 전사 수입·지출 장부를 관리하는 공간입니다. 방문자는 조직 지원 페이지에서 지원할 수 있습니다.</p></div><div class="hero-actions"><button class="yellow" id="applyHero">✦ 조직 지원하기</button><button class="light" id="loginHero">♙ 조직원 로그인</button><button class="outline" id="ledgerHero">▤ 장부 작성</button></div></section>
-    <div class="cards">
-      <article class="stat"><div class="stat-head">총 조직원 <span class="stat-icon">♙</span></div><strong id="memberCount">9명</strong><small>등록된 조직원 기준 · 예시 데이터</small></article>
-      <article class="stat"><div class="stat-head">누적 장부 총수입 <span class="stat-icon">↗</span></div><strong>54,068,000,000원</strong><small>수입 예시 합계</small></article>
-      <article class="stat"><div class="stat-head">장부 순자산 (순이익) <span class="stat-icon">＄</span></div><strong>54,068,000,000원</strong><small>총 지출: 0원 · 예시 데이터</small></article>
-    </div>
-    <section class="panel"><div class="panel-head"><div><h2>▤ 최근 장부 수입·지출 내역</h2><div class="sub">화면 예시 데이터입니다. 실제 저장 기능은 서버 연결이 필요합니다.</div></div><button class="link" id="allLedger">전체 보기 →</button></div>
-    <div class="table-wrap"><table><thead><tr><th>일자</th><th>구분</th><th>적요 (항목명)</th><th style="text-align:right">금액</th><th>작성자</th></tr></thead><tbody id="ledgerRows"><tr><td>2026-10-19</td><td><span class="pill">수입</span></td><td>조직 활동 수입</td><td class="amount">+200,000,000원</td><td>관리자</td></tr><tr><td>2026-10-18</td><td><span class="pill">수입</span></td><td>조직 거래</td><td class="amount">+700,000,000원</td><td>관리자</td></tr><tr><td>2026-10-17</td><td><span class="pill">수입</span></td><td>조직 거래</td><td class="amount">+20,000,000,000원</td><td>관리자</td></tr><tr><td>2026-10-12</td><td><span class="pill">수입</span></td><td>기타 수입</td><td class="amount">+13,168,000,000원</td><td>조직원</td></tr></tbody></table></div></section>
 
-    <section class="panel" id="adminApplicationsPanel" style="display:none">
-      <div class="panel-head"><div><h2>▣ 조직 지원서 관리</h2><div class="sub">관리자 계정만 지원자 정보를 열람할 수 있습니다.</div></div><button class="link" id="refreshApplications">새로고침 ↻</button></div>
-      <div id="applicationsList" style="margin-top:18px"><p class="sub">지원서를 불러오는 중...</p></div>
-    </section>
-    <section class="guide"><h3>◉ 흑월 공동 활용 안내</h3><p>조직원 계정으로 로그인하면 조직원 전용 메뉴를 사용할 수 있습니다. 로그인, 장부, 지원서 관리는 서버와 데이터베이스에 저장됩니다. 지원서 열람과 상태 변경은 관리자 계정만 가능합니다.</p></section>
+<main>
+<header>
+  <b id="pageTitle">대시보드</b>
+  <div class="actions">
+    <button class="secondary" id="loginButton">로그인</button>
+    <button class="primary" id="quickButton">＋ 장부 작성</button>
   </div>
+</header>
+<div class="content">
+  <div class="toast" id="toast"></div>
+  <div id="view"></div>
+</div>
 </main>
 </div>
-<div class="modal-backdrop" id="loginModal"><div class="modal"><h2>조직원 로그인</h2><p>등록된 조직원만 이용할 수 있는 화면입니다.</p><form id="loginForm"><div class="field"><label for="username">조직원 아이디</label><input id="username" required placeholder="아이디 입력" autocomplete="username"></div><div class="field"><label for="password">비밀번호</label><input id="password" type="password" required placeholder="비밀번호 입력" autocomplete="current-password"></div><div class="modal-actions"><button type="button" class="secondary closeModal">취소</button><button type="submit" class="primary">로그인</button></div></form><div class="notice">초기 관리자 계정: 아이디 <b>admin</b> / 비밀번호 <b>admin0000</b><br>첫 로그인 후 서버 환경변수로 비밀번호를 변경하는 것을 권장합니다.</div></div></div>
-<div class="modal-backdrop" id="ledgerModal"><div class="modal"><h2>장부 작성</h2><p>로그인한 조직원만 작성할 수 있습니다.</p><form id="ledgerForm"><div class="field"><label>구분</label><select id="ledgerType"><option>수입</option><option>지출</option></select></div><div class="field"><label>항목명</label><input id="ledgerDesc" required placeholder="예: 조직 활동비"></div><div class="field"><label>금액 (원)</label><input id="ledgerAmount" type="number" min="1" required placeholder="금액 입력"></div><div class="modal-actions"><button type="button" class="secondary closeModal">취소</button><button type="submit" class="primary">내역 추가</button></div></form><div class="notice">데모에서는 현재 페이지의 표에만 추가됩니다. 새로고침 후 유지되거나 다른 사용자에게 공유되지는 않습니다.</div></div></div>
 
-<div class="modal-backdrop" id="staffModal"><div class="modal"><h2>조직원 계정 생성</h2><p>관리자만 조직원 로그인 계정을 만들 수 있습니다.</p><form id="staffForm"><div class="field"><label for="staffUsername">조직원 아이디</label><input id="staffUsername" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]+" placeholder="영문/숫자 3~32자"></div><div class="field"><label for="staffPassword">임시 비밀번호</label><input id="staffPassword" type="password" required minlength="8" placeholder="8자 이상"></div><div class="modal-actions"><button type="button" class="secondary closeModal">취소</button><button type="submit" class="primary">계정 생성</button></div></form></div></div>
+<div class="modal" id="loginModal">
+  <div class="modal-box">
+    <h2>조직원 로그인</h2>
+    <form id="loginForm">
+      <div class="field">아이디<input name="username" required autocomplete="username"></div>
+      <div class="field">비밀번호<input name="password" type="password" required autocomplete="current-password"></div>
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeLogin()">취소</button>
+        <button class="primary">로그인</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="staffModal">
+  <div class="modal-box">
+    <h2>로그인 계정 생성</h2>
+    <form id="staffForm">
+      <div class="field">아이디<input name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]+"></div>
+      <div class="field">비밀번호<input name="password" type="password" required minlength="8"></div>
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeStaff()">취소</button>
+        <button class="primary">계정 생성</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
-const $=id=>document.getElementById(id);
-const loginModal=$('loginModal'),ledgerModal=$('ledgerModal'),staffModal=$('staffModal');
-let currentUser=null,currentRole=null;
-function openModal(el){el.style.display='flex'}function closeModal(el){el.style.display='none'}
-async function api(path, options={}) {
-  const response = await fetch(path, {credentials:'same-origin', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options});
-  const data = await response.json().catch(()=>({error:'서버 응답을 읽을 수 없습니다.'}));
-  if(!response.ok) throw new Error(data.error||'요청에 실패했습니다.');
+const $ = id => document.getElementById(id);
+const state = {user:null, role:null, page:"dashboard"};
+const titles = {
+  dashboard:"대시보드", members:"조직원 관리", ranks:"직급표",
+  ledger:"장부 관리", items:"품목 관리",
+  history:"거래내역 조회", loans:"대출 관리"
+};
+
+async function api(url, options={}) {
+  const response = await fetch(url, {
+    credentials:"same-origin",
+    headers:{"Content-Type":"application/json"},
+    ...options
+  });
+  const data = await response.json().catch(()=>({error:"서버 응답 오류"}));
+  if (!response.ok) throw new Error(data.error || "요청 실패");
   return data;
 }
-function notify(msg){$('toast').textContent=msg;$('toast').style.display='block';window.scrollTo({top:0,behavior:'smooth'});setTimeout(()=>$('toast').style.display='none',5000)}
-function updateUser(){
- $('profileName').textContent=currentUser||'방문자';
- $('profileRole').textContent=currentUser?(currentRole==='admin'?'관리자 · 전체 권한':'조직원 · 로그인됨'):'로그인 전 · 공개 화면';
- $('avatar').textContent=currentUser?currentUser.slice(0,1).toUpperCase():'방';
- $('loginTop').textContent=currentUser?'로그아웃':'♙ 조직원 로그인';
- $('loginHero').textContent=currentUser?'로그인 완료':'♙ 조직원 로그인';
- $('adminApplicationsPanel').style.display=currentRole==='admin'?'block':'none';
- let staffBtn=$('staffTop');
- if(currentRole==='admin' && !staffBtn){
-   staffBtn=document.createElement('button');staffBtn.id='staffTop';staffBtn.className='secondary';staffBtn.textContent='＋ 조직원 계정';
-   $('loginTop').parentElement.insertBefore(staffBtn,$('loginTop'));
-   staffBtn.onclick=()=>openModal(staffModal);
- } else if(staffBtn){staffBtn.style.display=currentRole==='admin'?'inline-block':'none';}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  })[c]);
 }
-async function loadApplications(){
- if(currentRole!=='admin')return;
- const host=$('applicationsList');host.textContent='불러오는 중...';
- try{
-   const data=await api('/api/applications');
-   if(!data.applications.length){host.innerHTML='<p class="sub">아직 접수된 지원서가 없습니다.</p>';return;}
-   host.innerHTML='';
-   data.applications.forEach(a=>{
-     const card=document.createElement('article');card.style.cssText='border:1px solid #e5e7eb;border-radius:12px;padding:15px;margin:10px 0;background:#fff';
-     const h=document.createElement('div');h.style.cssText='display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-weight:800;margin-bottom:10px';h.textContent=a.callname+' · '+a.status;
-     const date=document.createElement('span');date.style.cssText='font-size:11px;color:#718096;font-weight:400';date.textContent=new Date(a.created_at).toLocaleString('ko-KR');h.appendChild(date);card.appendChild(h);
-     [['연령대',a.age],['연락처',a.contact],['활동 시간',a.time],['지원 동기',a.reason]].forEach(([label,value])=>{const p=document.createElement('p');p.style.cssText='font-size:12px;line-height:1.6;margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere';const b=document.createElement('b');b.textContent=label+': ';p.appendChild(b);p.appendChild(document.createTextNode(value));card.appendChild(p)});
-     const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
-     ['검토 중','승인','거절'].forEach(status=>{const btn=document.createElement('button');btn.className=status==='승인'?'primary':'secondary';btn.textContent=status;btn.onclick=async()=>{try{await api('/api/applications/'+a.id+'/status',{method:'PATCH',body:JSON.stringify({status})});notify('지원 상태를 변경했습니다.');loadApplications()}catch(e){notify(e.message)}};actions.appendChild(btn)});
-     card.appendChild(actions);host.appendChild(card);
-   });
- }catch(e){host.textContent=e.message;}
+
+function won(value) {
+  return Number(value || 0).toLocaleString("ko-KR") + "원";
 }
-async function refreshMe(){
- try{const data=await api('/api/me');currentUser=data.user?.username||null;currentRole=data.user?.role||null;}
- catch{currentUser=null;currentRole=null}
- updateUser();
- if(currentRole==='admin')loadApplications();
+
+function notify(message) {
+  $("toast").textContent = message;
+  $("toast").style.display = "block";
+  setTimeout(()=>$("toast").style.display="none",3500);
 }
-$('loginTop').onclick=async()=>{if(currentUser){try{await api('/api/logout',{method:'POST',body:'{}'});currentUser=null;currentRole=null;updateUser();notify('로그아웃되었습니다.')}catch(e){notify(e.message)}}else openModal(loginModal)};
-$('loginHero').onclick=()=>{if(!currentUser)openModal(loginModal);else notify('이미 로그인되어 있습니다.')};
-$('applyHero').onclick=()=>location.href='apply.html';
-$('ledgerTop').onclick=$('ledgerHero').onclick=()=>requireLogin(()=>openModal(ledgerModal));
-$('allLedger').onclick=()=>requireLogin(()=>notify('장부 내역은 아래 표에서 확인할 수 있습니다.'));
-$('refreshApplications').onclick=loadApplications;
-function requireLogin(action){if(!currentUser){openModal(loginModal);return}action()}
-document.querySelectorAll('.closeModal').forEach(b=>b.onclick=()=>[loginModal,ledgerModal,staffModal].forEach(closeModal));
-[loginModal,ledgerModal,staffModal].forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m)}));
-$('loginForm').onsubmit=async e=>{e.preventDefault();try{const data=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value.trim(),password:$('password').value})});currentUser=data.user.username;currentRole=data.user.role;updateUser();closeModal(loginModal);notify('로그인되었습니다.');if(currentRole==='admin')loadApplications()}catch(err){notify(err.message)}};
-$('staffForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/staff',{method:'POST',body:JSON.stringify({username:$('staffUsername').value.trim(),password:$('staffPassword').value})});closeModal(staffModal);$('staffForm').reset();notify('조직원 계정을 생성했습니다.')}catch(err){notify(err.message)}};
-$('ledgerForm').onsubmit=async e=>{e.preventDefault();const type=$('ledgerType').value,desc=$('ledgerDesc').value.trim(),amount=Number($('ledgerAmount').value);try{await api('/api/ledger',{method:'POST',body:JSON.stringify({type,description:desc,amount})});const tr=document.createElement('tr');const date=new Date().toISOString().slice(0,10);tr.innerHTML=`<td>${date}</td><td><span class="pill"></span></td><td></td><td class="amount"></td><td></td>`;tr.children[1].firstChild.textContent=type;tr.children[2].textContent=desc;tr.children[3].textContent=(type==='수입'?'+':'-')+amount.toLocaleString('ko-KR')+'원';tr.children[4].textContent=currentUser;$('ledgerRows').prepend(tr);closeModal(ledgerModal);$('ledgerForm').reset();notify('장부 내역이 서버 데이터베이스에 저장되었습니다.')}catch(err){notify(err.message)}};
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const names={dashboard:'통합 대시보드',members:'조직원 관리',ranks:'직급표',ledger:'장부 관리',items:'품목 관리',history:'거래내역 조회',loans:'대출 관리'};$('pageTitle').textContent=names[b.dataset.section];if(b.dataset.section==='dashboard')return;requireLogin(()=>{if(b.dataset.section==='members'&&currentRole==='admin')openModal(staffModal);else notify(names[b.dataset.section]+' 메뉴를 선택했습니다.')})});
-refreshMe();
+
+function isAdmin() { return state.role === "admin"; }
+
+function setUser(data) {
+  state.user = data?.user?.username || null;
+  state.role = data?.user?.role || null;
+  $("usernameDisplay").textContent = state.user || "방문자";
+  $("roleDisplay").textContent = !state.user ? "로그인 전" :
+    (isAdmin() ? "관리자" : "조직원");
+  $("loginButton").textContent = state.user ? "로그아웃" : "로그인";
+}
+
+function requireLogin() {
+  if (state.user) return true;
+  $("loginModal").style.display = "flex";
+  return false;
+}
+
+function table(headers, rows) {
+  if (!rows.length) return '<div class="empty">등록된 내역이 없습니다.</div>';
+  return `<div class="table-wrap"><table>
+    <thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead>
+    <tbody>${rows.join("")}</tbody>
+  </table></div>`;
+}
+
+function row(values) {
+  return "<tr>" + values.map(v=>`<td>${v}</td>`).join("") + "</tr>";
+}
+
+function render(title, html) {
+  $("pageTitle").textContent = title;
+  $("view").innerHTML = html;
+}
+
+function dashboardHTML() {
+  return `
+  <section class="hero">
+    <div>● 흑월 조직 관리 포털</div>
+    <h1>흑월 공동 업무 포털</h1>
+    <p>조직원, 직급, 수입·지출, 품목 및 대출 내역을 관리합니다.</p>
+    <div class="actions">
+      <button class="secondary" onclick="go('ledger')">장부 관리</button>
+      <button class="secondary" onclick="go('members')">조직원 관리</button>
+    </div>
+  </section>
+  <div class="cards">
+    <div class="card"><span>총 조직원</span><strong id="memberCount">0명</strong><small>등록된 조직원</small></div>
+    <div class="card"><span>누적 총수입</span><strong id="income">0원</strong><small>장부 수입 합계</small></div>
+    <div class="card"><span>순자산</span><strong id="net">0원</strong><small id="expense">총 지출: 0원</small></div>
+  </div>
+  <section class="panel">
+    <h2>최근 거래내역</h2>
+    <div id="recent"><div class="empty">불러오는 중...</div></div>
+  </section>`;
+}
+
+async function loadDashboard() {
+  try {
+    const stats = await api("/api/dashboard");
+    const result = await api("/api/ledger");
+    $("memberCount").textContent = (stats.members || 0) + "명";
+    $("income").textContent = won(stats.income);
+    $("net").textContent = won(stats.net);
+    $("expense").textContent = "총 지출: " + won(stats.expense);
+
+    const entries = result.ledger || [];
+    $("recent").innerHTML = table(
+      ["일자","구분","항목","금액","작성자"],
+      entries.slice(0,8).map(x=>row([
+        esc(String(x.created_at).slice(0,10)),
+        esc(x.type), esc(x.description),
+        (x.type==="수입"?"+":"−")+won(x.amount),
+        esc(x.created_by)
+      ]))
+    );
+  } catch (error) {
+    $("recent").innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+  }
+}
+
+async function removeRecord(url) {
+  if (!confirm("정말 삭제할까요?")) return;
+  try {
+    await api(url,{method:"DELETE"});
+    notify("삭제했습니다.");
+    await loadPage();
+  } catch(e) { notify(e.message); }
+}
+
+async function loadPage() {
+  if (state.page === "dashboard") {
+    render(titles.dashboard,dashboardHTML());
+    if (state.user) await loadDashboard();
+    return;
+  }
+  if (!requireLogin()) return;
+
+  try {
+    if (state.page === "ledger" || state.page === "history") {
+      return await loadLedger(state.page === "history");
+    }
+    if (state.page === "members") return await loadMembers();
+    if (state.page === "ranks") return await loadRanks();
+    if (state.page === "items") return await loadItems();
+    if (state.page === "loans") return await loadLoans();
+  } catch(e) {
+    render(titles[state.page],`<section class="panel">
+      <h2>화면을 불러오지 못했습니다.</h2>
+      <p>${esc(e.message)}</p>
+      <button class="secondary" onclick="loadPage()">다시 시도</button>
+    </section>`);
+  }
+}
+
+async function loadLedger(history) {
+  const data = await api(history ? "/api/transactions" : "/api/ledger");
+  const entries = data.transactions || data.ledger || [];
+
+  render(titles[state.page],`
+    ${history ? "" : `<section class="panel">
+      <h2>수입·지출 등록</h2>
+      <form id="ledgerForm" class="form">
+        <label class="field">구분
+          <select name="type"><option>수입</option><option>지출</option></select>
+        </label>
+        <label class="field">항목명<input name="description" required maxlength="200"></label>
+        <label class="field">금액(원)<input name="amount" type="number" min="1" required></label>
+        <div class="full"><button class="primary">장부 저장</button></div>
+      </form>
+    </section>`}
+    <section class="panel">
+      <h2>${history?"전체 거래내역":"장부 내역"}</h2>
+      ${table(["일자","구분","항목","금액","작성자"],entries.map(x=>row([
+        esc(String(x.created_at).slice(0,10)),esc(x.type),
+        esc(x.description),(x.type==="수입"?"+":"−")+won(x.amount),
+        esc(x.created_by)
+      ])))}
+    </section>`);
+
+  if (!history) $("ledgerForm").onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await api("/api/ledger",{method:"POST",body:JSON.stringify({
+        type:f.get("type"),description:f.get("description"),
+        amount:Number(f.get("amount"))
+      })});
+      notify("장부가 저장되었습니다.");
+      await loadPage();
+    } catch(x) { notify(x.message); }
+  };
+}
+
+async function loadMembers() {
+  const data = await api("/api/members");
+  const members = data.members || [];
+
+  render(titles.members,`
+    ${isAdmin()?`<section class="panel">
+      <h2>조직원 명단 등록</h2>
+      <form id="memberForm" class="form">
+        <label class="field">IC 성명<input name="name" required></label>
+        <label class="field">직급<input name="rank" value="조직원"></label>
+        <label class="field">메모<input name="note"></label>
+        <div class="full actions">
+          <button class="primary">조직원 등록</button>
+          <button type="button" class="secondary" onclick="openStaff()">로그인 계정 생성</button>
+        </div>
+      </form>
+    </section>`:""}
+    <section class="panel"><h2>조직원 명단 (${members.length}명)</h2>
+      ${table(["IC 성명","직급","메모",...(isAdmin()?["관리"]:[])],
+        members.map(x=>row([
+          esc(x.name),esc(x.rank),esc(x.note),
+          ...(isAdmin()?[`<button class="danger" onclick="removeRecord('/api/members/${x.id}')">삭제</button>`]:[])
+        ])))}
+    </section>`);
+
+  if (isAdmin()) $("memberForm").onsubmit = async e => {
+    e.preventDefault(); const f=new FormData(e.target);
+    try {
+      await api("/api/members",{method:"POST",body:JSON.stringify({
+        name:f.get("name"),rank:f.get("rank"),note:f.get("note")
+      })});
+      notify("조직원을 등록했습니다."); await loadPage();
+    } catch(x) { notify(x.message); }
+  };
+}
+
+async function loadRanks() {
+  const data=await api("/api/ranks"), ranks=data.ranks||[];
+  render(titles.ranks,`
+    ${isAdmin()?`<section class="panel"><h2>직급 추가</h2>
+      <form id="rankForm" class="form">
+        <label class="field">직급명<input name="name" required></label>
+        <label class="field">순서<input name="level" type="number" min="0" value="0"></label>
+        <div><button class="primary">직급 추가</button></div>
+      </form>
+    </section>`:""}
+    <section class="panel"><h2>직급 목록</h2>
+      ${table(["직급","순서",...(isAdmin()?["관리"]:[])],ranks.map(x=>row([
+        esc(x.name),esc(x.level),
+        ...(isAdmin()?[`<button class="danger" onclick="removeRecord('/api/ranks/${x.id}')">삭제</button>`]:[])
+      ])))}
+    </section>`);
+
+  if(isAdmin()) $("rankForm").onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.target);
+    try{
+      await api("/api/ranks",{method:"POST",body:JSON.stringify({
+        name:f.get("name"),level:Number(f.get("level")||0)
+      })});
+      notify("직급을 추가했습니다.");await loadPage();
+    }catch(x){notify(x.message);}
+  };
+}
+
+async function loadItems() {
+  const data=await api("/api/items"),items=data.items||[];
+  render(titles.items,`
+    ${isAdmin()?`<section class="panel"><h2>품목 등록</h2>
+      <form id="itemForm" class="form">
+        <label class="field">품목명<input name="name" required></label>
+        <label class="field">기준 가격<input name="price" type="number" min="0" value="0"></label>
+        <label class="field">설명<input name="description"></label>
+        <div class="full"><button class="primary">품목 추가</button></div>
+      </form>
+    </section>`:""}
+    <section class="panel"><h2>품목 목록</h2>
+      ${table(["품목","기준 가격","설명",...(isAdmin()?["관리"]:[])],items.map(x=>row([
+        esc(x.name),won(x.price),esc(x.description),
+        ...(isAdmin()?[`<button class="danger" onclick="removeRecord('/api/items/${x.id}')">삭제</button>`]:[])
+      ])))}
+    </section>`);
+
+  if(isAdmin()) $("itemForm").onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.target);
+    try{
+      await api("/api/items",{method:"POST",body:JSON.stringify({
+        name:f.get("name"),price:Number(f.get("price")||0),
+        description:f.get("description")
+      })});
+      notify("품목을 추가했습니다.");await loadPage();
+    }catch(x){notify(x.message);}
+  };
+}
+
+async function loadLoans() {
+  const data=await api("/api/loans"),loans=data.loans||[];
+  render(titles.loans,`
+    ${isAdmin()?`<section class="panel"><h2>대출 지급</h2>
+      <p class="muted">대출 지급은 장부 지출로, 상환은 장부 수입으로 자동 등록됩니다.</p>
+      <form id="loanForm" class="form">
+        <label class="field">대출자<input name="borrower" required></label>
+        <label class="field">금액(원)<input name="amount" type="number" min="1" required></label>
+        <label class="field">사유<input name="description"></label>
+        <div class="full"><button class="primary">대출 지급 등록</button></div>
+      </form>
+    </section>`:""}
+    <section class="panel"><h2>대출 내역</h2>
+      ${table(["대출자","대출금","상환액","잔액","상태",...(isAdmin()?["상환"]:[])],loans.map(x=>row([
+        esc(x.borrower),won(x.amount),won(x.repaid),won(x.amount-x.repaid),
+        esc(x.status),
+        ...(isAdmin()?[`<button class="secondary" onclick="repayLoan(${x.id})">상환 등록</button>`]:[])
+      ])))}
+    </section>`);
+
+  if(isAdmin()) $("loanForm").onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.target);
+    try{
+      await api("/api/loans",{method:"POST",body:JSON.stringify({
+        borrower:f.get("borrower"),amount:Number(f.get("amount")),
+        description:f.get("description")
+      })});
+      notify("대출과 장부 지출을 등록했습니다.");await loadPage();
+    }catch(x){notify(x.message);}
+  };
+}
+
+async function repayLoan(id) {
+  const amount=Number(prompt("상환 금액(원)을 입력하세요."));
+  if(!Number.isSafeInteger(amount)||amount<=0)return;
+  try{
+    await api(`/api/loans/${id}/repay`,{
+      method:"POST",body:JSON.stringify({amount})
+    });
+    notify("상환 및 장부 수입을 등록했습니다.");await loadPage();
+  }catch(e){notify(e.message);}
+}
+
+function go(page) {
+  state.page=page;
+  document.querySelectorAll("[data-page]").forEach(b=>
+    b.classList.toggle("active",b.dataset.page===page)
+  );
+  $("quickButton").textContent=page==="loans"?"대출 관리":"＋ 장부 작성";
+  loadPage();
+}
+
+function openStaff() {
+  if(!isAdmin())return notify("관리자만 사용할 수 있습니다.");
+  $("staffModal").style.display="flex";
+}
+function closeLogin(){$("loginModal").style.display="none";}
+function closeStaff(){$("staffModal").style.display="none";}
+
+window.go=go;
+window.removeRecord=removeRecord;
+window.repayLoan=repayLoan;
+window.openStaff=openStaff;
+window.closeLogin=closeLogin;
+window.closeStaff=closeStaff;
+
+document.querySelectorAll("[data-page]").forEach(b=>{
+  b.addEventListener("click",()=>go(b.dataset.page));
+});
+
+$("loginButton").onclick=async()=>{
+  if(!state.user){$("loginModal").style.display="flex";return;}
+  try{
+    await api("/api/logout",{method:"POST",body:"{}"});
+    setUser(null);notify("로그아웃했습니다.");go("dashboard");
+  }catch(e){notify(e.message);}
+};
+
+$("quickButton").onclick=()=>{
+  if(!requireLogin())return;
+  if(state.page==="members"&&isAdmin())return openStaff();
+  go(state.page==="loans"?"loans":"ledger");
+};
+
+$("loginForm").onsubmit=async e=>{
+  e.preventDefault();const f=new FormData(e.target);
+  try{
+    const data=await api("/api/login",{method:"POST",body:JSON.stringify({
+      username:f.get("username"),password:f.get("password")
+    })});
+    setUser(data);closeLogin();notify("로그인되었습니다.");await loadPage();
+  }catch(x){notify(x.message);}
+};
+
+$("staffForm").onsubmit=async e=>{
+  e.preventDefault();const f=new FormData(e.target);
+  try{
+    await api("/api/staff",{method:"POST",body:JSON.stringify({
+      username:f.get("username"),password:f.get("password")
+    })});
+    closeStaff();e.target.reset();notify("조직원 계정을 생성했습니다.");
+  }catch(x){notify(x.message);}
+};
+
+(async()=>{
+  try{setUser(await api("/api/me"));}
+  catch{setUser(null);}
+  await loadPage();
+})();
 </script>
-</body></html>
+</body>
+</html>
