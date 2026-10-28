@@ -15,6 +15,41 @@ const db = new Database(DB_FILE);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(`
+CREATE TABLE IF NOT EXISTS org_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ic_name TEXT NOT NULL,
+  rank TEXT NOT NULL DEFAULT '신입',
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ranks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  price INTEGER NOT NULL DEFAULT 0,
+  category TEXT NOT NULL DEFAULT '기타'
+);
+
+CREATE TABLE IF NOT EXISTS loans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  borrower TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK(amount > 0),
+  repaid INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`);
+db.exec(`
 CREATE TABLE IF NOT EXISTS users (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  username TEXT NOT NULL UNIQUE,
@@ -196,6 +231,235 @@ app.post('/api/ledger', requireLogin, (req, res) => {
  const result = db.prepare('INSERT INTO ledger (type,description,amount,created_by,created_at) VALUES (?,?,?,?,?)')
    .run(type, description, amount, req.user.id, new Date().toISOString());
  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+});
+// 대시보드: 모든 금액은 실제 장부 데이터에서 계산
+app.get('/api/dashboard', requireLogin, (req, res) => {
+  const totals = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN type='수입' THEN amount ELSE 0 END),0) AS income,
+      COALESCE(SUM(CASE WHEN type='지출' THEN amount ELSE 0 END),0) AS expense
+    FROM ledger
+  `).get();
+
+  const members = db.prepare(
+    'SELECT COUNT(*) AS count FROM org_members'
+  ).get().count;
+
+  const recent = db.prepare(`
+    SELECT id,type,description,amount,created_at
+    FROM ledger ORDER BY id DESC LIMIT 10
+  `).all();
+
+  res.json({
+    members,
+    income: totals.income,
+    expense: totals.expense,
+    net: totals.income - totals.expense,
+    recent
+  });
+});
+
+// 조직원 목록
+app.get('/api/members', requireLogin, (req, res) => {
+  res.json({
+    members: db.prepare(
+      'SELECT * FROM org_members ORDER BY id DESC'
+    ).all()
+  });
+});
+
+// 조직원 등록
+app.post('/api/members', requireAdmin, (req, res) => {
+  const icName = cleanString(req.body.ic_name, 50);
+  const rank = cleanString(req.body.rank || '신입', 30);
+
+  if (!icName) {
+    return res.status(400).json({ error: 'IC 성명을 입력해 주세요.' });
+  }
+
+  const result = db.prepare(`
+    INSERT INTO org_members (ic_name,rank,created_at)
+    VALUES (?,?,?)
+  `).run(icName, rank, new Date().toISOString());
+
+  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+});
+
+// 조직원 삭제
+app.delete('/api/members/:id', requireAdmin, (req, res) => {
+  const result = db.prepare(
+    'DELETE FROM org_members WHERE id=?'
+  ).run(Number(req.params.id));
+
+  if (!result.changes) {
+    return res.status(404).json({ error: '조직원을 찾을 수 없습니다.' });
+  }
+
+  res.json({ ok: true });
+});
+
+// 직급표
+app.get('/api/ranks', requireLogin, (req, res) => {
+  res.json({
+    ranks: db.prepare(
+      'SELECT * FROM ranks ORDER BY sort_order,id'
+    ).all()
+  });
+});
+
+app.post('/api/ranks', requireAdmin, (req, res) => {
+  const name = cleanString(req.body.name, 30);
+  const sortOrder = Number(req.body.sort_order || 0);
+
+  if (!name || !Number.isSafeInteger(sortOrder)) {
+    return res.status(400).json({ error: '직급 정보를 확인해 주세요.' });
+  }
+
+  try {
+    const result = db.prepare(
+      'INSERT INTO ranks (name,sort_order) VALUES (?,?)'
+    ).run(name, sortOrder);
+
+    res.status(201).json({ ok: true, id: result.lastInsertRowid });
+  } catch {
+    res.status(409).json({ error: '이미 등록된 직급입니다.' });
+  }
+});
+
+app.delete('/api/ranks/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM ranks WHERE id=?').run(Number(req.params.id));
+  res.json({ ok: true });
+});
+
+// 기준 품목
+app.get('/api/items', requireLogin, (req, res) => {
+  res.json({
+    items: db.prepare('SELECT * FROM items ORDER BY id DESC').all()
+  });
+});
+
+app.post('/api/items', requireAdmin, (req, res) => {
+  const name = cleanString(req.body.name, 80);
+  const category = cleanString(req.body.category || '기타', 30);
+  const price = Number(req.body.price);
+
+  if (!name || !Number.isSafeInteger(price) || price < 0) {
+    return res.status(400).json({ error: '품목명과 가격을 확인해 주세요.' });
+  }
+
+  const result = db.prepare(
+    'INSERT INTO items (name,price,category) VALUES (?,?,?)'
+  ).run(name, price, category);
+
+  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+});
+
+app.delete('/api/items/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM items WHERE id=?').run(Number(req.params.id));
+  res.json({ ok: true });
+});
+
+// 대출 목록: 상환액과 남은 잔액 계산
+app.get('/api/loans', requireLogin, (req, res) => {
+  const loans = db.prepare(`
+    SELECT loans.id,loans.borrower,loans.amount,loans.repaid,
+      loans.amount-loans.repaid AS balance,
+      loans.created_at,users.username AS created_by
+    FROM loans JOIN users ON users.id=loans.created_by
+    ORDER BY loans.id DESC
+  `).all();
+
+  res.json({ loans });
+});
+
+// 대출 지급: 지출 장부에도 자동 기록
+app.post('/api/loans', requireAdmin, (req, res) => {
+  const borrower = cleanString(req.body.borrower, 80);
+  const amount = Number(req.body.amount);
+
+  if (!borrower || !Number.isSafeInteger(amount) ||
+      amount < 1 || amount > 1000000000000) {
+    return res.status(400).json({ error: '대출 대상과 금액을 확인해 주세요.' });
+  }
+
+  const createLoan = db.transaction(() => {
+    const loan = db.prepare(`
+      INSERT INTO loans (borrower,amount,repaid,created_by,created_at)
+      VALUES (?,?,0,?,?)
+    `).run(borrower, amount, req.user.id, new Date().toISOString());
+
+    db.prepare(`
+      INSERT INTO ledger (type,description,amount,created_by,created_at)
+      VALUES ('지출',?,?,?,?)
+    `).run(
+      `대출 지급 - ${borrower} (#${loan.lastInsertRowid})`,
+      amount,
+      req.user.id,
+      new Date().toISOString()
+    );
+
+    return loan.lastInsertRowid;
+  });
+
+  res.status(201).json({ ok: true, id: createLoan() });
+});
+
+// 대출 상환: 수입 장부에 자동 기록
+app.post('/api/loans/:id/repay', requireAdmin, (req, res) => {
+  const amount = Number(req.body.amount);
+  const loan = db.prepare('SELECT * FROM loans WHERE id=?')
+    .get(Number(req.params.id));
+
+  if (!loan) {
+    return res.status(404).json({ error: '대출 내역을 찾을 수 없습니다.' });
+  }
+
+  const balance = loan.amount - loan.repaid;
+
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > balance) {
+    return res.status(400).json({ error: '상환 금액이 올바르지 않습니다.' });
+  }
+
+  const repay = db.transaction(() => {
+    db.prepare('UPDATE loans SET repaid=repaid+? WHERE id=?')
+      .run(amount, loan.id);
+
+    db.prepare(`
+      INSERT INTO ledger (type,description,amount,created_by,created_at)
+      VALUES ('수입',?,?,?,?)
+    `).run(
+      `대출 상환 - ${loan.borrower} (#${loan.id})`,
+      amount,
+      req.user.id,
+      new Date().toISOString()
+    );
+  });
+
+  repay();
+  res.json({ ok: true });
+});
+
+// 전체 거래내역 조회
+app.get('/api/transactions', requireLogin, (req, res) => {
+  const type = req.query.type;
+
+  if (type && !['수입','지출'].includes(type)) {
+    return res.status(400).json({ error: '거래 유형이 올바르지 않습니다.' });
+  }
+
+  const rows = type
+    ? db.prepare(`
+        SELECT ledger.*,users.username AS created_by
+        FROM ledger JOIN users ON users.id=ledger.created_by
+        WHERE ledger.type=? ORDER BY ledger.id DESC
+      `).all(type)
+    : db.prepare(`
+        SELECT ledger.*,users.username AS created_by
+        FROM ledger JOIN users ON users.id=ledger.created_by
+        ORDER BY ledger.id DESC
+      `).all();
+
+  res.json({ transactions: rows });
 });
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
