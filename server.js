@@ -1,38 +1,73 @@
-const express = require('express');
-const Database = require('better-sqlite3');
-const crypto = require('node:crypto');
-const path = require('node:path');
+// server.js
+const express = require("express");
+const session = require("express-session");
+const Database = require("better-sqlite3");
+const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
-const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'heukwol.sqlite');
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin0000';
-const SESSION_DAYS = 7;
+const PORT = process.env.PORT || 3000;
+const DATA_DIR = path.join(__dirname, "data");
 
-require('node:fs').mkdirSync(path.dirname(DB_FILE), { recursive: true });
-const db = new Database(DB_FILE);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const db = new Database(path.join(DATA_DIR, "heukwol.sqlite"));
+db.pragma("journal_mode = WAL");
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false }));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 12 * 60 * 60 * 1000
+  }
+}));
+
+// 데이터베이스 테이블
 db.exec(`
-CREATE TABLE IF NOT EXISTS org_members (
+CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ic_name TEXT NOT NULL,
-  rank TEXT NOT NULL DEFAULT '신입',
-  created_at TEXT NOT NULL
+  username TEXT NOT NULL UNIQUE,
+  salt TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'staff'
+);
+
+CREATE TABLE IF NOT EXISTS members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  rank TEXT NOT NULL DEFAULT '조직원',
+  note TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS ranks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
-  sort_order INTEGER NOT NULL DEFAULT 0
+  level INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   price INTEGER NOT NULL DEFAULT 0,
-  category TEXT NOT NULL DEFAULT '기타'
+  description TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL CHECK(type IN ('수입','지출')),
+  description TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK(amount > 0),
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS loans (
@@ -40,431 +75,451 @@ CREATE TABLE IF NOT EXISTS loans (
   borrower TEXT NOT NULL,
   amount INTEGER NOT NULL CHECK(amount > 0),
   repaid INTEGER NOT NULL DEFAULT 0,
-  created_by INTEGER NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS app_settings (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-`);
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- username TEXT NOT NULL UNIQUE,
- password_salt TEXT NOT NULL,
- password_hash TEXT NOT NULL,
- role TEXT NOT NULL CHECK(role IN ('admin','staff')),
- created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
- token_hash TEXT PRIMARY KEY,
- user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- expires_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS applications (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- callname TEXT NOT NULL,
- age TEXT NOT NULL,
- contact TEXT NOT NULL,
- activity_time TEXT NOT NULL,
- reason TEXT NOT NULL,
- status TEXT NOT NULL DEFAULT '접수',
- created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS ledger (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- type TEXT NOT NULL CHECK(type IN ('수입','지출')),
- description TEXT NOT NULL,
- amount INTEGER NOT NULL CHECK(amount > 0),
- created_by INTEGER NOT NULL REFERENCES users(id),
- created_at TEXT NOT NULL
+  description TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT '진행 중',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `);
 
-function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
- const hash = crypto.scryptSync(password, salt, 64).toString('hex');
- return { salt, hash };
+function hashPassword(password, salt) {
+  return crypto.scryptSync(password, salt, 64).toString("hex");
 }
-function createUser(username, password, role) {
- const { salt, hash } = hashPassword(password);
- db.prepare('INSERT INTO users (username,password_salt,password_hash,role,created_at) VALUES (?,?,?,?,?)')
-   .run(username, salt, hash, role, new Date().toISOString());
-}
-const existingAdmin = db.prepare('SELECT id FROM users WHERE username = ?').get(ADMIN_USERNAME);
-if (!existingAdmin) createUser(ADMIN_USERNAME, ADMIN_PASSWORD, 'admin');
 
-app.disable('x-powered-by');
-app.use(express.json({ limit: '32kb' }));
-app.use(express.urlencoded({ extended: false, limit: '32kb' }));
-app.use((req, res, next) => {
- res.setHeader('X-Content-Type-Options', 'nosniff');
- res.setHeader('Referrer-Policy', 'same-origin');
- res.setHeader('X-Frame-Options', 'DENY');
- next();
-});
-app.use(express.static(path.join(__dirname, 'public')));
+// 최초 관리자 계정 생성.
+// Render 환경변수 ADMIN_USERNAME, ADMIN_PASSWORD를 설정해야 함.
+const adminExists = db.prepare(
+  "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+).get();
 
-const COOKIE_NAME = 'heukwol_session';
-function cookieValue(req, name) {
- const entry = (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(name + '='));
- return entry ? decodeURIComponent(entry.slice(name.length + 1)) : null;
+if (!adminExists) {
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (adminUsername && adminPassword && adminPassword.length >= 8) {
+    const salt = crypto.randomBytes(16).toString("hex");
+
+    db.prepare(`
+      INSERT INTO users (username, salt, hash, role)
+      VALUES (?, ?, ?, 'admin')
+    `).run(
+      adminUsername,
+      salt,
+      hashPassword(adminPassword, salt)
+    );
+
+    console.log("관리자 계정이 환경변수로 생성되었습니다.");
+  } else {
+    console.warn(
+      "관리자 계정이 없습니다. Render에 ADMIN_USERNAME과 ADMIN_PASSWORD를 설정하세요."
+    );
+  }
 }
-function setSessionCookie(res, token) {
- const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
- res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}${secure}`);
+
+function cleanText(value, maxLength = 200) {
+  return typeof value === "string"
+    ? value.trim().slice(0, maxLength)
+    : "";
 }
-function clearSessionCookie(res) {
- const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
- res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure}`);
+
+function validAmount(value) {
+  const amount = Number(value);
+  return Number.isSafeInteger(amount) && amount > 0
+    ? amount
+    : null;
 }
-function currentUser(req) {
- const token = cookieValue(req, COOKIE_NAME);
- if (!token) return null;
- const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
- const session = db.prepare(`SELECT users.id, users.username, users.role, sessions.expires_at
-   FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=?`).get(tokenHash);
- if (!session || session.expires_at < Date.now()) {
-   db.prepare('DELETE FROM sessions WHERE token_hash=?').run(tokenHash);
-   return null;
- }
- return { id: session.id, username: session.username, role: session.role };
-}
+
 function requireLogin(req, res, next) {
- const user = currentUser(req);
- if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
- req.user = user; next();
+  if (!req.session.user) {
+    return res.status(401).json({ error: "로그인이 필요합니다." });
+  }
+  next();
 }
-function requireAdmin(req, res, next) {
- const user = currentUser(req);
- if (!user || user.role !== 'admin') return res.status(403).json({ error: '관리자 계정만 접근할 수 있습니다.' });
- req.user = user; next();
-}
-function cleanString(value, max) {
- if (typeof value !== 'string') return '';
- return value.trim().slice(0, max);
-}
-function validPassword(user, password) {
- const actual = crypto.scryptSync(password, user.password_salt, 64);
- const expected = Buffer.from(user.password_hash, 'hex');
- return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
-}
-const loginAttempts = new Map();
-function loginRateLimit(req, res, next) {
- const key = req.ip || req.socket.remoteAddress || 'unknown';
- const now = Date.now();
- const record = loginAttempts.get(key) || { count: 0, start: now };
- if (now - record.start > 15 * 60 * 1000) { record.count = 0; record.start = now; }
- if (record.count >= 20) return res.status(429).json({ error: '로그인 시도가 너무 많습니다. 15분 후 다시 시도하세요.' });
- req.loginAttemptKey = key; req.loginAttemptRecord = record; next();
-}
-app.post('/api/login', loginRateLimit, (req, res) => {
- const username = cleanString(req.body.username, 32);
- const password = typeof req.body.password === 'string' ? req.body.password : '';
- const user = db.prepare('SELECT * FROM users WHERE username=?').get(username);
- if (!user || !validPassword(user, password)) {
-   const r = req.loginAttemptRecord; r.count++; loginAttempts.set(req.loginAttemptKey, r);
-   return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
- }
- loginAttempts.delete(req.loginAttemptKey);
- const token = crypto.randomBytes(32).toString('hex');
- const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
- db.prepare('INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)')
-   .run(tokenHash, user.id, Date.now() + SESSION_DAYS * 86400000);
- setSessionCookie(res, token);
- res.json({ user: { username: user.username, role: user.role } });
-});
-app.post('/api/logout', (req, res) => {
- const token = cookieValue(req, COOKIE_NAME);
- if (token) db.prepare('DELETE FROM sessions WHERE token_hash=?').run(crypto.createHash('sha256').update(token).digest('hex'));
- clearSessionCookie(res); res.json({ ok: true });
-});
-app.get('/api/me', (req, res) => {
- const user = currentUser(req);
- res.json({ user: user ? { username: user.username, role: user.role } : null });
-});
-app.post('/api/staff', requireAdmin, (req, res) => {
- const username = cleanString(req.body.username, 32);
- const password = typeof req.body.password === 'string' ? req.body.password : '';
- if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) return res.status(400).json({ error: '아이디는 영문, 숫자, 밑줄, 하이픈으로 3~32자여야 합니다.' });
- if (password.length < 8 || password.length > 128) return res.status(400).json({ error: '비밀번호는 8~128자여야 합니다.' });
- try { createUser(username, password, 'staff'); res.status(201).json({ ok: true }); }
- catch { res.status(409).json({ error: '이미 사용 중인 아이디입니다.' }); }
-});
-app.post('/api/apply', (req, res) => {
- const callname = cleanString(req.body.callname, 30);
- const age = cleanString(req.body.age, 30);
- const contact = cleanString(req.body.contact, 80);
- const activityTime = cleanString(req.body.time, 80);
- const reason = cleanString(req.body.reason, 1000);
- if (!callname || !age || !contact || !activityTime || !reason || req.body.agree !== true) {
-   return res.status(400).json({ error: '모든 필수 항목을 입력하고 동의 항목을 체크해 주세요.' });
- }
- const result = db.prepare('INSERT INTO applications (callname,age,contact,activity_time,reason,status,created_at) VALUES (?,?,?,?,?,?,?)')
-   .run(callname, age, contact, activityTime, reason, '접수', new Date().toISOString());
- res.status(201).json({ ok: true, id: result.lastInsertRowid });
-});
-app.get('/api/applications', requireAdmin, (req, res) => {
- const applications = db.prepare('SELECT id,callname,age,contact,activity_time AS time,reason,status,created_at FROM applications ORDER BY id DESC').all();
- res.json({ applications });
-});
-app.patch('/api/applications/:id/status', requireAdmin, (req, res) => {
- const status = cleanString(req.body.status, 20);
- if (!['검토 중','승인','거절'].includes(status)) return res.status(400).json({ error: '올바르지 않은 상태입니다.' });
- const result = db.prepare('UPDATE applications SET status=? WHERE id=?').run(status, Number(req.params.id));
- if (!result.changes) return res.status(404).json({ error: '지원서를 찾을 수 없습니다.' });
- res.json({ ok: true });
-});
-app.get('/api/ledger', requireLogin, (req, res) => {
- const rows = db.prepare(`SELECT ledger.id, ledger.type, ledger.description, ledger.amount, ledger.created_at,
-   users.username AS created_by FROM ledger JOIN users ON users.id=ledger.created_by ORDER BY ledger.id DESC LIMIT 100`).all();
- res.json({ ledger: rows });
-});
-app.post('/api/ledger', requireLogin, (req, res) => {
- const type = req.body.type;
- const description = cleanString(req.body.description, 120);
- const amount = Number(req.body.amount);
- if (!['수입','지출'].includes(type) || !description || !Number.isSafeInteger(amount) || amount < 1 || amount > 1000000000000) {
-   return res.status(400).json({ error: '구분, 항목명, 금액을 올바르게 입력해 주세요.' });
- }
- const result = db.prepare('INSERT INTO ledger (type,description,amount,created_by,created_at) VALUES (?,?,?,?,?)')
-   .run(type, description, amount, req.user.id, new Date().toISOString());
- res.status(201).json({ ok: true, id: result.lastInsertRowid });
-});
-// 대시보드: 모든 금액은 실제 장부 데이터에서 계산
-app.get('/api/dashboard', requireLogin, (req, res) => {
-  const totals = db.prepare(`
-    SELECT
-      COALESCE(SUM(CASE WHEN type='수입' THEN amount ELSE 0 END),0) AS income,
-      COALESCE(SUM(CASE WHEN type='지출' THEN amount ELSE 0 END),0) AS expense
-    FROM ledger
-  `).get();
 
+function requireAdmin(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "로그인이 필요합니다." });
+  }
+
+  if (req.session.user.role !== "admin") {
+    return res.status(403).json({ error: "관리자 권한이 필요합니다." });
+  }
+
+  next();
+}
+
+function addLedger(type, description, amount, username) {
+  return db.prepare(`
+    INSERT INTO ledger (type, description, amount, created_by)
+    VALUES (?, ?, ?, ?)
+  `).run(type, description, amount, username);
+}
+
+// 로그인
+app.post("/api/login", (req, res) => {
+  const username = cleanText(req.body.username, 32);
+  const password = typeof req.body.password === "string"
+    ? req.body.password
+    : "";
+
+  const user = db.prepare(`
+    SELECT id, username, salt, hash, role
+    FROM users
+    WHERE username = ?
+  `).get(username);
+
+  if (!user) {
+    return res.status(401).json({
+      error: "아이디 또는 비밀번호가 올바르지 않습니다."
+    });
+  }
+
+  const actualHash = Buffer.from(
+    hashPassword(password, user.salt),
+    "hex"
+  );
+  const savedHash = Buffer.from(user.hash, "hex");
+
+  if (
+    actualHash.length !== savedHash.length ||
+    !crypto.timingSafeEqual(actualHash, savedHash)
+  ) {
+    return res.status(401).json({
+      error: "아이디 또는 비밀번호가 올바르지 않습니다."
+    });
+  }
+
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    role: user.role
+  };
+
+  res.json({ user: req.session.user });
+});
+
+// 로그아웃
+app.post("/api/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.json({ ok: true });
+  });
+});
+
+// 현재 로그인 사용자
+app.get("/api/me", (req, res) => {
+  res.json({ user: req.session.user || null });
+});
+
+// 관리자: 조직원 로그인 계정 생성
+app.post("/api/staff", requireAdmin, (req, res) => {
+  const username = cleanText(req.body.username, 32);
+  const password = typeof req.body.password === "string"
+    ? req.body.password
+    : "";
+
+  if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) {
+    return res.status(400).json({
+      error: "아이디는 영문, 숫자, _ 또는 -로 3~32자여야 합니다."
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      error: "비밀번호는 8자 이상이어야 합니다."
+    });
+  }
+
+  const salt = crypto.randomBytes(16).toString("hex");
+
+  try {
+    db.prepare(`
+      INSERT INTO users (username, salt, hash, role)
+      VALUES (?, ?, ?, 'staff')
+    `).run(username, salt, hashPassword(password, salt));
+
+    res.status(201).json({ ok: true, username });
+  } catch {
+    res.status(409).json({ error: "이미 사용 중인 아이디입니다." });
+  }
+});
+
+// 대시보드 통계
+app.get("/api/dashboard", requireLogin, (req, res) => {
   const members = db.prepare(
-    'SELECT COUNT(*) AS count FROM org_members'
+    "SELECT COUNT(*) AS count FROM members"
   ).get().count;
 
-  const recent = db.prepare(`
-    SELECT id,type,description,amount,created_at
-    FROM ledger ORDER BY id DESC LIMIT 10
-  `).all();
+  const totals = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN type = '수입' THEN amount ELSE 0 END), 0) AS income,
+      COALESCE(SUM(CASE WHEN type = '지출' THEN amount ELSE 0 END), 0) AS expense
+    FROM ledger
+  `).get();
 
   res.json({
     members,
     income: totals.income,
     expense: totals.expense,
-    net: totals.income - totals.expense,
-    recent
+    net: totals.income - totals.expense
   });
 });
 
-// 조직원 목록
-app.get('/api/members', requireLogin, (req, res) => {
-  res.json({
-    members: db.prepare(
-      'SELECT * FROM org_members ORDER BY id DESC'
-    ).all()
-  });
+// 장부 조회
+app.get("/api/ledger", requireLogin, (req, res) => {
+  const ledger = db.prepare(`
+    SELECT * FROM ledger
+    ORDER BY id DESC
+    LIMIT 500
+  `).all();
+
+  res.json({ ledger });
 });
 
-// 조직원 등록
-app.post('/api/members', requireAdmin, (req, res) => {
-  const icName = cleanString(req.body.ic_name, 50);
-  const rank = cleanString(req.body.rank || '신입', 30);
+// 전체 거래내역 조회
+app.get("/api/transactions", requireLogin, (req, res) => {
+  const transactions = db.prepare(`
+    SELECT * FROM ledger
+    ORDER BY id DESC
+    LIMIT 2000
+  `).all();
 
-  if (!icName) {
-    return res.status(400).json({ error: 'IC 성명을 입력해 주세요.' });
+  res.json({ transactions });
+});
+
+// 장부 작성
+app.post("/api/ledger", requireLogin, (req, res) => {
+  const type = req.body.type;
+  const description = cleanText(req.body.description);
+  const amount = validAmount(req.body.amount);
+
+  if (!["수입", "지출"].includes(type) || !description || !amount) {
+    return res.status(400).json({
+      error: "구분, 항목명, 1원 이상의 금액을 확인하세요."
+    });
+  }
+
+  const result = addLedger(
+    type,
+    description,
+    amount,
+    req.session.user.username
+  );
+
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// 조직원 명단
+app.get("/api/members", requireLogin, (req, res) => {
+  const members = db.prepare(
+    "SELECT * FROM members ORDER BY id DESC"
+  ).all();
+
+  res.json({ members });
+});
+
+app.post("/api/members", requireAdmin, (req, res) => {
+  const name = cleanText(req.body.name, 80);
+  const rank = cleanText(req.body.rank, 80) || "조직원";
+  const note = cleanText(req.body.note, 300);
+
+  if (!name) {
+    return res.status(400).json({ error: "IC 성명을 입력하세요." });
   }
 
   const result = db.prepare(`
-    INSERT INTO org_members (ic_name,rank,created_at)
-    VALUES (?,?,?)
-  `).run(icName, rank, new Date().toISOString());
+    INSERT INTO members (name, rank, note)
+    VALUES (?, ?, ?)
+  `).run(name, rank, note);
 
-  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+  res.status(201).json({ id: result.lastInsertRowid });
 });
 
-// 조직원 삭제
-app.delete('/api/members/:id', requireAdmin, (req, res) => {
-  const result = db.prepare(
-    'DELETE FROM org_members WHERE id=?'
-  ).run(Number(req.params.id));
-
-  if (!result.changes) {
-    return res.status(404).json({ error: '조직원을 찾을 수 없습니다.' });
-  }
+app.delete("/api/members/:id", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM members WHERE id = ?")
+    .run(Number(req.params.id));
 
   res.json({ ok: true });
 });
 
 // 직급표
-app.get('/api/ranks', requireLogin, (req, res) => {
-  res.json({
-    ranks: db.prepare(
-      'SELECT * FROM ranks ORDER BY sort_order,id'
-    ).all()
-  });
+app.get("/api/ranks", requireLogin, (req, res) => {
+  const ranks = db.prepare(
+    "SELECT * FROM ranks ORDER BY level ASC, id ASC"
+  ).all();
+
+  res.json({ ranks });
 });
 
-app.post('/api/ranks', requireAdmin, (req, res) => {
-  const name = cleanString(req.body.name, 30);
-  const sortOrder = Number(req.body.sort_order || 0);
+app.post("/api/ranks", requireAdmin, (req, res) => {
+  const name = cleanText(req.body.name, 80);
+  const level = Number(req.body.level ?? 0);
 
-  if (!name || !Number.isSafeInteger(sortOrder)) {
-    return res.status(400).json({ error: '직급 정보를 확인해 주세요.' });
+  if (!name || !Number.isInteger(level) || level < 0) {
+    return res.status(400).json({ error: "직급명과 순서를 확인하세요." });
   }
 
   try {
-    const result = db.prepare(
-      'INSERT INTO ranks (name,sort_order) VALUES (?,?)'
-    ).run(name, sortOrder);
+    const result = db.prepare(`
+      INSERT INTO ranks (name, level)
+      VALUES (?, ?)
+    `).run(name, level);
 
-    res.status(201).json({ ok: true, id: result.lastInsertRowid });
+    res.status(201).json({ id: result.lastInsertRowid });
   } catch {
-    res.status(409).json({ error: '이미 등록된 직급입니다.' });
+    res.status(409).json({ error: "이미 등록된 직급입니다." });
   }
 });
 
-app.delete('/api/ranks/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM ranks WHERE id=?').run(Number(req.params.id));
+app.delete("/api/ranks/:id", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM ranks WHERE id = ?")
+    .run(Number(req.params.id));
+
   res.json({ ok: true });
 });
 
-// 기준 품목
-app.get('/api/items', requireLogin, (req, res) => {
-  res.json({
-    items: db.prepare('SELECT * FROM items ORDER BY id DESC').all()
-  });
+// 품목 관리
+app.get("/api/items", requireLogin, (req, res) => {
+  const items = db.prepare(
+    "SELECT * FROM items ORDER BY name"
+  ).all();
+
+  res.json({ items });
 });
 
-app.post('/api/items', requireAdmin, (req, res) => {
-  const name = cleanString(req.body.name, 80);
-  const category = cleanString(req.body.category || '기타', 30);
-  const price = Number(req.body.price);
+app.post("/api/items", requireAdmin, (req, res) => {
+  const name = cleanText(req.body.name, 100);
+  const price = Number(req.body.price ?? 0);
+  const description = cleanText(req.body.description, 300);
 
   if (!name || !Number.isSafeInteger(price) || price < 0) {
-    return res.status(400).json({ error: '품목명과 가격을 확인해 주세요.' });
+    return res.status(400).json({ error: "품목명과 가격을 확인하세요." });
   }
 
-  const result = db.prepare(
-    'INSERT INTO items (name,price,category) VALUES (?,?,?)'
-  ).run(name, price, category);
+  try {
+    const result = db.prepare(`
+      INSERT INTO items (name, price, description)
+      VALUES (?, ?, ?)
+    `).run(name, price, description);
 
-  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+    res.status(201).json({ id: result.lastInsertRowid });
+  } catch {
+    res.status(409).json({ error: "이미 등록된 품목입니다." });
+  }
 });
 
-app.delete('/api/items/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM items WHERE id=?').run(Number(req.params.id));
+app.delete("/api/items/:id", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM items WHERE id = ?")
+    .run(Number(req.params.id));
+
   res.json({ ok: true });
 });
 
-// 대출 목록: 상환액과 남은 잔액 계산
-app.get('/api/loans', requireLogin, (req, res) => {
-  const loans = db.prepare(`
-    SELECT loans.id,loans.borrower,loans.amount,loans.repaid,
-      loans.amount-loans.repaid AS balance,
-      loans.created_at,users.username AS created_by
-    FROM loans JOIN users ON users.id=loans.created_by
-    ORDER BY loans.id DESC
-  `).all();
+// 대출 내역
+app.get("/api/loans", requireLogin, (req, res) => {
+  const loans = db.prepare(
+    "SELECT * FROM loans ORDER BY id DESC"
+  ).all();
 
   res.json({ loans });
 });
 
-// 대출 지급: 지출 장부에도 자동 기록
-app.post('/api/loans', requireAdmin, (req, res) => {
-  const borrower = cleanString(req.body.borrower, 80);
-  const amount = Number(req.body.amount);
+// 대출 지급: 대출 기록 + 장부 지출을 한 번에 저장
+app.post("/api/loans", requireAdmin, (req, res) => {
+  const borrower = cleanText(req.body.borrower, 100);
+  const amount = validAmount(req.body.amount);
+  const description = cleanText(req.body.description, 200);
 
-  if (!borrower || !Number.isSafeInteger(amount) ||
-      amount < 1 || amount > 1000000000000) {
-    return res.status(400).json({ error: '대출 대상과 금액을 확인해 주세요.' });
+  if (!borrower || !amount) {
+    return res.status(400).json({
+      error: "대출자와 1원 이상의 금액을 입력하세요."
+    });
   }
 
-  const createLoan = db.transaction(() => {
+  const transaction = db.transaction(() => {
     const loan = db.prepare(`
-      INSERT INTO loans (borrower,amount,repaid,created_by,created_at)
-      VALUES (?,?,0,?,?)
-    `).run(borrower, amount, req.user.id, new Date().toISOString());
-
-    db.prepare(`
-      INSERT INTO ledger (type,description,amount,created_by,created_at)
-      VALUES ('지출',?,?,?,?)
+      INSERT INTO loans (borrower, amount, description, created_by)
+      VALUES (?, ?, ?, ?)
     `).run(
-      `대출 지급 - ${borrower} (#${loan.lastInsertRowid})`,
+      borrower,
       amount,
-      req.user.id,
-      new Date().toISOString()
+      description,
+      req.session.user.username
+    );
+
+    addLedger(
+      "지출",
+      `대출 지급 - ${borrower}`,
+      amount,
+      req.session.user.username
     );
 
     return loan.lastInsertRowid;
   });
 
-  res.status(201).json({ ok: true, id: createLoan() });
+  res.status(201).json({ id: transaction() });
 });
 
-// 대출 상환: 수입 장부에 자동 기록
-app.post('/api/loans/:id/repay', requireAdmin, (req, res) => {
-  const amount = Number(req.body.amount);
-  const loan = db.prepare('SELECT * FROM loans WHERE id=?')
-    .get(Number(req.params.id));
+// 대출 상환: 상환액 업데이트 + 장부 수입을 한 번에 저장
+app.post("/api/loans/:id/repay", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const amount = validAmount(req.body.amount);
+
+  const loan = db.prepare(
+    "SELECT * FROM loans WHERE id = ?"
+  ).get(id);
 
   if (!loan) {
-    return res.status(404).json({ error: '대출 내역을 찾을 수 없습니다.' });
+    return res.status(404).json({ error: "대출 내역을 찾을 수 없습니다." });
   }
 
-  const balance = loan.amount - loan.repaid;
-
-  if (!Number.isSafeInteger(amount) || amount < 1 || amount > balance) {
-    return res.status(400).json({ error: '상환 금액이 올바르지 않습니다.' });
+  if (!amount || amount > loan.amount - loan.repaid) {
+    return res.status(400).json({
+      error: "상환 금액이 남은 대출 잔액보다 큽니다."
+    });
   }
 
-  const repay = db.transaction(() => {
-    db.prepare('UPDATE loans SET repaid=repaid+? WHERE id=?')
-      .run(amount, loan.id);
+  const transaction = db.transaction(() => {
+    const repaid = loan.repaid + amount;
 
     db.prepare(`
-      INSERT INTO ledger (type,description,amount,created_by,created_at)
-      VALUES ('수입',?,?,?,?)
+      UPDATE loans
+      SET repaid = ?, status = ?
+      WHERE id = ?
     `).run(
-      `대출 상환 - ${loan.borrower} (#${loan.id})`,
+      repaid,
+      repaid === loan.amount ? "상환 완료" : "진행 중",
+      id
+    );
+
+    addLedger(
+      "수입",
+      `대출 상환 - ${loan.borrower}`,
       amount,
-      req.user.id,
-      new Date().toISOString()
+      req.session.user.username
     );
   });
 
-  repay();
+  transaction();
   res.json({ ok: true });
 });
 
-// 전체 거래내역 조회
-app.get('/api/transactions', requireLogin, (req, res) => {
-  const type = req.query.type;
-
-  if (type && !['수입','지출'].includes(type)) {
-    return res.status(400).json({ error: '거래 유형이 올바르지 않습니다.' });
-  }
-
-  const rows = type
-    ? db.prepare(`
-        SELECT ledger.*,users.username AS created_by
-        FROM ledger JOIN users ON users.id=ledger.created_by
-        WHERE ledger.type=? ORDER BY ledger.id DESC
-      `).all(type)
-    : db.prepare(`
-        SELECT ledger.*,users.username AS created_by
-        FROM ledger JOIN users ON users.id=ledger.created_by
-        ORDER BY ledger.id DESC
-      `).all();
-
-  res.json({ transactions: rows });
+// 상태 확인
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
 });
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// public/index.html 제공
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "서버 내부 오류가 발생했습니다." });
+});
 
 app.listen(PORT, () => {
- console.log(`Heukwol portal listening on port ${PORT}`);
- console.log(`Database: ${DB_FILE}`);
- if (ADMIN_PASSWORD === 'admin0000') console.warn('WARNING: Using default admin password. Set ADMIN_PASSWORD before public deployment.');
+  console.log(`흑월 포털 실행 중: ${PORT}`);
 });
