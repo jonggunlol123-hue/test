@@ -1,0 +1,17 @@
+{
+  "name": "heukwol-organization-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "흑월 조직 포털 - 서버 인증, SQLite 데이터베이스, 관리자 전용 지원서 관리",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.21.2"
+  }
+}
