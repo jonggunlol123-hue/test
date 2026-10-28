@@ -17,6 +17,9 @@
 3. `npm start`
 4. 브라우저에서 http://localhost:3000 접속
 
+관리자 로그인
+- 아이디: admin
+- 비밀번호: admin0000
 
 보안 중요사항
 - 공개 배포 전 ADMIN_PASSWORD 환경변수를 강력하고 고유한 비밀번호로 설정하세요.
